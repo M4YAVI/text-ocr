@@ -1,5 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse
 import pytesseract
 from PIL import Image
 import io
@@ -77,12 +77,12 @@ HTML_CONTENT = """
                         body: formData
                     });
                     
-                    const data = await response.json();
-                    
                     if (response.ok) {
+                        const text = await response.text();
                         result.style.display = 'block';
-                        result.textContent = JSON.stringify(data, null, 2);
+                        result.textContent = text;
                     } else {
+                        const data = await response.json();
                         alert('Error: ' + (data.detail || 'Unknown error'));
                     }
                 } catch (e) {
@@ -101,7 +101,7 @@ HTML_CONTENT = """
 async def main():
     return HTML_CONTENT
 
-@app.post("/ocr/image")
+@app.post("/ocr/image", response_class=PlainTextResponse)
 async def extract_text(file: UploadFile = File(...)):
     # 1. Validate file type
     if file.content_type not in ["image/jpeg", "image/png", "image/jpg"]:
@@ -121,10 +121,7 @@ async def extract_text(file: UploadFile = File(...)):
         # 4. Run Tesseract
         text = pytesseract.image_to_string(image)
         
-        return {
-            "filename": file.filename,
-            "text": text.strip()
-        }
+        return text.strip()
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
