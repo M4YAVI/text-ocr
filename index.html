@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>OCR API Tester</title>
+        <style>
+            body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; background: #f9f9f9; }
+            .container { background: white; border: 2px dashed #ccc; padding: 2rem; text-align: center; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+            .container.dragover { border-color: #000; background: #f0f0f0; }
+            
+            #preview { max-width: 100%; max-height: 400px; margin-top: 1rem; border-radius: 8px; display: none; box-shadow: 0 2px 4px rgb(0 0 0 / 0.1); }
+            #result { white-space: pre-wrap; background: #1a1a1a; color: #fff; padding: 1.5rem; margin-top: 2rem; border-radius: 8px; display: none; text-align: left; font-family: monospace; overflow-x: auto; }
+            
+            .controls { margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: center; align-items: center; }
+            
+            /* Hidden file input */
+            input[type="file"] { display: none; }
+            
+            /* Custom Button Styles */
+            .btn { padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-weight: 500; transition: all 0.2s; border: none; font-size: 1rem; }
+            .btn-primary { background: #000; color: #fff; }
+            .btn-primary:hover { background: #333; }
+            
+            .btn-secondary { background: #e5e7eb; color: #374151; }
+            .btn-secondary:hover { background: #d1d5db; }
+            
+            .btn-danger { background: #ef4444; color: white; display: none; }
+            .btn-danger:hover { background: #dc2626; }
+            
+            .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+            
+            .upload-label { display: inline-block; cursor: pointer; }
+        </style>
+    </head>
+    <body>
+        <h1 style="text-align: center; margin-bottom: 2rem;">Image-to-Text OCR API</h1>
+        
+        <div class="container" id="dropZone">
+            <div id="uploadPrompt">
+                <label for="fileInput" class="btn btn-primary upload-label">
+                    📁 Choose Image
+                </label>
+                <p style="color: #666; margin-top: 1rem;">or drag and drop here</p>
+            </div>
+
+            <input type="file" id="fileInput" accept="image/png, image/jpeg">
+            <img id="preview">
+            
+            <div class="controls">
+                <button onclick="uploadImage()" id="extractBtn" class="btn btn-primary" style="display: none;">Extract Text</button>
+                <button onclick="clearState()" id="clearBtn" class="btn btn-secondary" style="display: none;">Clear</button>
+            </div>
+        </div>
+        
+        <div id="result"></div>
+
+        <script>
+            const fileInput = document.getElementById('fileInput');
+            const preview = document.getElementById('preview');
+            const result = document.getElementById('result');
+            const extractBtn = document.getElementById('extractBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const uploadPrompt = document.getElementById('uploadPrompt');
+            const dropZone = document.getElementById('dropZone');
+
+            // Handle File Selection
+            fileInput.onchange = handleFileSelect;
+
+            function handleFileSelect(e) {
+                const file = e.target.files[0] || e.dataTransfer?.files[0];
+                if (file) {
+                    // Update Preview
+                    preview.src = URL.createObjectURL(file);
+                    preview.style.display = 'inline-block';
+                    
+                    // Show Controls, Hide Prompt
+                    uploadPrompt.style.display = 'none';
+                    extractBtn.style.display = 'inline-block';
+                    clearBtn.style.display = 'inline-block';
+                    extractBtn.disabled = false;
+                    extractBtn.innerText = 'Extract Text';
+                    
+                    // Hide previous result
+                    result.style.display = 'none';
+                }
+            }
+            
+            function clearState() {
+                fileInput.value = '';
+                preview.src = '';
+                preview.style.display = 'none';
+                result.style.display = 'none';
+                result.textContent = '';
+                
+                uploadPrompt.style.display = 'block';
+                extractBtn.style.display = 'none';
+                clearBtn.style.display = 'none';
+            }
+
+            // Drag and Drop support
+            dropZone.ondragover = (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            };
+            
+            dropZone.ondragleave = () => {
+                dropZone.classList.remove('dragover');
+            };
+            
+            dropZone.ondrop = (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                handleFileSelect(e);
+                // Manually set files to input if dropped
+                if (e.dataTransfer.files.length) {
+                    fileInput.files = e.dataTransfer.files;
+                }
+            };
+
+            async function uploadImage() {
+                const file = fileInput.files[0];
+                if (!file) return;
+
+                extractBtn.disabled = true;
+                extractBtn.innerText = 'Processing...';
+                result.style.display = 'none';
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                try {
+                    const response = await fetch('/ocr/image', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        const text = await response.text();
+                        result.style.display = 'block';
+                        result.textContent = text;
+                    } else {
+                        const data = await response.json();
+                        alert('Error: ' + (data.detail || 'Unknown error'));
+                    }
+                } catch (e) {
+                    alert('Error: ' + e.message);
+                } finally {
+                    extractBtn.disabled = false;
+                    extractBtn.innerText = 'Extract Text';
+                }
+            }
+        </script>
+    </body>
+</html>
